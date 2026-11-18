@@ -106,12 +106,12 @@ every chosen branch.
 
 ### Branches
 
-Six Shufersal branches — **three in Tel Aviv and three in one peripheral city**
-(e.g. Be'er Sheva) — so the comparison is group-vs-group, not branch-vs-branch:
+Six Shufersal branches — **three in Tel Aviv and three in north peripheral cities**
+(e.g. afula,tzfat) — so the comparison is group-vs-group, not branch-vs-branch:
 
 - **Tel Aviv** — branch 001 (Sheli, Ben Yehuda, verified) plus two more Tel Aviv
   branches (e.g. 007 Arlozorov, 011 Nordau).
-- **Periphery** — three branches in one southern city, ids confirmed against the
+- **Periphery** — three branches in tow nNorthern cities, ids confirmed against the
   portal's branch list.
 
 Three branches per group is deliberate: with one branch per side, any difference
