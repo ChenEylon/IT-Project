@@ -4,77 +4,172 @@ Chen Eylon · Ori Lisser
 
 A single live source, chosen after professor feedback on our two original
 proposals. The source publishes only a current state: ask it tomorrow about
-today and the answer is gone. It is not an existing dataset — the history only
-exists if we collect it, which is the point of the project.
-
-A **second, enriching source** will be added in week 7 per the project timeline
-(see "Planned second source" below). This file will be updated when that source
-is chosen.
+today and the answer is gone. The history only exists if we collect it, which
+is the point of the project. A second, enriching source will be added in week 7
+(see "Planned second source" at the end).
 
 ---
 
-## Primary source — Shufersal prices across its branches
+## 1. Source at a glance
 
-### What it is
+| field | value |
+|-------|-------|
+| **Name** | Shufersal price-transparency portal — `PriceFull` files |
+| **URL** | https://prices.shufersal.co.il (listed in the Ministry of Economy index: https://www.gov.il/he/departments/legalInfo/cpfta_prices_regulations) |
+| **Data format** | XML, one file per branch, published gzipped (`.gz`); we store the extracted `.xml` |
+| **Key / username required** | No — public, no login |
+| **License** | Published under the Promotion of Competition in the Food Industry Law (2014), which requires chains to make prices public. The portal states no explicit open-data license; we use the data for non-commercial academic research only. |
+| **Sampling frequency** | Manual phase (now): one sample per day. Automated phase: three times a day per branch (morning, midday, evening). |
 
-Israel's price transparency law requires every food chain to publish its prices
-for every branch and to update them within an hour of a price change. Shufersal
-runs its own public portal of timestamped, gzipped files, one per branch, with
-no login required. We collect a fixed basket of products from a fixed set of
-Shufersal branches on the same daily schedule and track how each product's price
-moves, per branch, over the semester.
+---
 
-We chose Shufersal over the other chains for two reasons: its portal is open
-(no login, unlike chains served through the shared login platform), and it
-operates a large number of branches — which is exactly what our research
-question needs, since the comparison is *between branches of the same chain*.
+## 2. What we collect
 
-### Research question
+Israel's price transparency law requires every food chain to publish the prices
+of every branch and to update them within an hour of a price change. Shufersal
+publishes a full price file (`PriceFull`) per branch, with every product the
+branch sells.
 
-How does the **rate of price increases differ from the rate of price
-decreases** across different branches of the **same chain** — and from that,
-**which branches lead** price changes and which only follow them?
+From these files we track a **fixed basket of 25 national-brand products** in
+**six Shufersal branches** (three in Tel Aviv, three in northern peripheral
+cities) and record, per product and branch, its price and when Shufersal last
+updated that price. This lets us answer our research question: how the pace of
+price increases differs from the pace of decreases between branches of the same
+chain, and which branches lead price changes and which follow.
 
-Concretely, we measure three things:
+**Current state (Exercise 3):** four manual samples of branch 001 (Shufersal
+Sheli Tel Aviv – Ben Yehuda), one per day, 18–21 Nov 2026, stored as full
+`PriceFull` files:
 
-1. **Asymmetry** — within each branch, do prices rise faster/sharper than they
-   fall? (the "rockets and feathers" pattern)
-2. **Branch comparison** — is that asymmetry stronger in some branches than
-   others (e.g. central vs peripheral locations)?
-3. **Lead–follow** — when a product's price changes, which branch moves first
-   and which align to it a few days later?
+```
+raw/2026-11-18/0300.xml
+raw/2026-11-19/0300.xml
+raw/2026-11-20/0431.xml
+raw/2026-11-21/0300.xml
+```
 
-Measuring this needs same-moment, per-branch collection over a full semester —
-history that does not exist anywhere and cannot be reconstructed after the fact.
+We started with one branch to confirm that downloading and storing works end to
+end. Before the automated phase we will confirm with the course staff how to
+name six branch files collected at the same minute, since the contract's
+`raw/YYYY-mm-dd/HHMM.ext` rule allows one file per minute.
 
-### Expected content
+---
 
-Per product, per branch, per collection: barcode, product name, unit, price,
-and whether a promotion applies. Each source file carries the branch id and the
-timestamp of publication.
+## 3. Schema (`dataset.csv`)
 
-### Basket
+One row per product, per branch, per collection.
 
-A fixed basket of 25 **national-brand** grocery products, spread across many
-categories (soft drinks, snacks, sweets, dairy, dry goods, household, personal
-care) so that it reflects a typical household's shopping rather than one corner
-of it. Three principles drive the choice:
+| column | content | unit / format |
+|--------|---------|---------------|
+| `collected_at_utc` | when the sample was taken | ISO 8601, UTC (e.g. `2026-11-18T01:00:00Z`) |
+| `chain` | chain identifier | text, constant `shufersal` |
+| `branch_id` | Shufersal branch number | 3-digit text (e.g. `001`), kept as text to preserve leading zeros |
+| `barcode` | product barcode — the key that matches a product across branches | text (digits) |
+| `product_name` | product name as published | text, Hebrew |
+| `unit` | package size and unit | text, quantity + unit (e.g. `439 גרם`) |
+| `price` | shelf price at the branch | ILS (₪), 2 decimals |
+| `price_updated_at_utc` | when Shufersal last changed this product's price | ISO 8601, UTC |
 
-1. **National brands only** (not private-label / store brands), so the **exact
-   same barcode** exists in every branch — this is what makes a cross-branch
-   comparison valid.
-2. **Products whose price moves**, since the research question is about price
-   *changes* over time. We deliberately **exclude price-controlled items**
-   (milk in cartons, white bread, eggs, salt), whose price is frozen by law and
-   would contribute no signal.
-3. **Diversity across categories**, so the findings are not an artefact of one
+Example row:
+
+```
+collected_at_utc,chain,branch_id,barcode,product_name,unit,price,price_updated_at_utc
+2026-11-18T01:00:00Z,shufersal,001,7290000066318,במבה 80 גרם,80 גרם,5.90,2026-10-02T06:30:00Z
+```
+
+---
+
+## 4. Why these columns (and not the others)
+
+**Kept:**
+
+- `collected_at_utc`, `branch_id`, `barcode` — together they identify one
+  observation: which product, in which branch, at which moment. Without all
+  three there is no time series per branch.
+- `chain` — constant today, but keeps the dataset correct if we ever compare
+  chains or merge in another source.
+- `price` — the variable the research question is about.
+- `price_updated_at_utc` — **added after inspecting the files.** It tells us
+  when Shufersal itself changed the price, which is more precise than our three
+  daily snapshots, and directly serves the "who leads, who follows" part of the
+  question.
+- `product_name`, `unit` — not needed for the analysis (the barcode is the key),
+  but they make the data readable and let us check that the same barcode really
+  is the same product and size in every branch.
+
+**Dropped:**
+
+- `on_promotion` — **removed from the original plan.** `PriceFull` files contain
+  no promotion field. `AllowDiscount` only says whether a discount is *allowed*,
+  not whether one applies. Promotions are published in separate `PromoFull`
+  files; we may add them later.
+- `ManufactureName`, `ManufactureCountry`, `ManufactureItemDescription` — fixed
+  per barcode and irrelevant to price changes.
+- `UnitOfMeasurePrice`, `UnitOfMeasure` — price per 100 g / per unit; derivable
+  from `price` and `unit` if ever needed.
+- `LastSaleDateTime` — when the item last sold; about sales, not prices.
+- `ItemType`, `bIsWeighted`, `QtyInPackage`, `ItemStatus`, `SubChainID`,
+  `BikoretNo` — technical fields, constant or empty in our basket.
+
+---
+
+## 5. Field translation (source → schema)
+
+| source (XML) | level in file | schema column | transformation |
+|--------------|---------------|---------------|----------------|
+| *(path `raw/YYYY-mm-dd/HHMM.xml`)* | — | `collected_at_utc` | date from folder + time from file name, Israel time → UTC |
+| `ChainID` (`7290027600007`) | file | `chain` | mapped to the constant `shufersal` |
+| `StoreID` | file | `branch_id` | as is (3-digit text) |
+| `ItemCode` | item | `barcode` | as is |
+| `ItemName` | item | `product_name` | as is |
+| `Quantity` + `UnitQty` | item | `unit` | joined: `439.00` + `גרם` → `439 גרם` |
+| `ItemPrice` | item | `price` | as is |
+| `PriceUpdateTime` | item | `price_updated_at_utc` | Israel time (no timezone in source) → UTC |
+
+---
+
+## 6. Expected size after one semester
+
+Assumptions: about 60 days of collection remain this semester; 6 branches ×
+3 collections a day = 18 files a day.
+
+**Measured:** the four manual samples take 22 MB together (`du -sh raw`), about
+**5.5 MB per full `PriceFull` file**, because each file lists every product in
+the branch (thousands), while we need 25.
+
+| | calculation | semester total |
+|---|---|---|
+| `raw/` — full files (not viable) | 5.5 MB × 18 × 60 | **≈ 6 GB** |
+| `raw/` — filtered to our 25 products | ≈ 17 KB × 18 × 60 | **≈ 18 MB** |
+| `dataset.csv` | 25 × 6 × 3 × 60 = 27,000 rows × ~100 bytes | **≈ 2.7 MB** |
+
+Storing full files would make the repository far too large for GitHub (which
+recommends staying under 1 GB) and break our own 500 MB budget. So the
+automated collector (`collect.sh`) will download each full file but keep **only
+our 25 basket products** in `raw/`. The four manual samples stay as full files,
+for reference.
+
+Trade-off, stated deliberately: filtering at collection time means a product we
+did not collect cannot be recovered later. Since the basket is fixed for the
+semester, this is an acceptable choice.
+
+---
+
+## Appendix A — Basket
+
+25 **national-brand** products across categories (soft drinks, snacks, sweets,
+dairy, dry goods, household, personal care). Three principles:
+
+1. **National brands only**, so the exact same barcode exists in every branch —
+   this is what makes a cross-branch comparison valid.
+2. **Products whose price moves.** Price-controlled items (milk in cartons,
+   white bread, eggs, salt) are excluded because their price is frozen by law.
+3. **Diversity across categories**, so findings are not an artefact of one
    product family.
 
-The basket below was verified against a real `PriceFull` file from branch 001
-(Shufersal Sheli Tel Aviv – Ben Yehuda) on 2026-11-17: every product was found
-in the live catalogue with a discount-eligible flag. Exact single-unit barcodes
-are finalised when `collect.sh` first runs and confirms each product appears in
-every chosen branch.
+Verified against a real `PriceFull` file from branch 001 on 2026-11-17. Exact
+single-unit barcodes are finalised when `collect.sh` first confirms each product
+appears in every chosen branch.
 
 | # | product | barcode | price (₪) |
 |---|---------|---------|-----------|
@@ -104,110 +199,53 @@ every chosen branch.
 | 24 | Lily toilet paper 32 rolls| 7290000187938 | 43.90 |
 | 25 | Johnson's shampoo 750 ml  | 3574669907729 | 22.90 |
 
-### Branches
+## Appendix B — Branches
 
-Six Shufersal branches — **three in Tel Aviv and three in north peripheral cities**
-(e.g. afula,tzfat) — so the comparison is group-vs-group, not branch-vs-branch:
+Six branches — **three in Tel Aviv and three in northern peripheral cities**
+(e.g. Afula, Tzfat) — so the comparison is group-vs-group, not
+branch-vs-branch:
 
-- **Tel Aviv** — branch 001 (Sheli, Ben Yehuda, verified) plus two more Tel Aviv
-  branches (e.g. 007 Arlozorov, 011 Nordau).
-- **Periphery** — three branches in tow nNorthern cities, ids confirmed against the
+- **Tel Aviv** — 001 (Sheli, Ben Yehuda), 007, 011.
+- **Periphery** — three branches in northern cities, ids confirmed against the
   portal's branch list.
 
-Three branches per group is deliberate: with one branch per side, any difference
-could just be that single branch's quirk. With three, we can separate
-*within-group* variation (one odd branch) from a real *between-group* difference
-(Tel Aviv as a whole behaving differently from the periphery), which is what
-keeps the finding unbiased.
+With one branch per side, any difference could be a single branch's quirk. With
+three, we can separate within-group variation from a real between-group
+difference.
 
-### URL
+## Appendix C — Limitations
 
-The source of record is the Ministry of Economy's index, which lists the
-statutory price portal of every chain:
-
-- https://www.gov.il/he/departments/legalInfo/cpfta_prices_regulations
-
-The Shufersal portal itself:
-
-- https://prices.shufersal.co.il
-
-### Update frequency
-
-The law requires an update within an hour of any price change. We collect
-**three times a day** per branch (e.g. morning, midday, evening), so we can see
-intra-day timing — which matters for the lead/follow part of the research
-question — not just day-to-day movement. Each collection downloads the full
-`PriceFull` snapshot (so all basket products are always present) but keeps only
-our 25 basket products — see below.
-
-### Expected size
-
-`collect.sh` downloads the full `PriceFull` file per branch but stores **only
-the 25 basket products** as a small timestamped file in `raw/`. That is roughly
-25 products × 6 branches × 3 times a day ≈ 450 rows per day, a few hundred KB —
-so the whole semester stays at a handful of MB, far inside the 500 MB budget.
-
-Trade-off, stated deliberately: filtering at collection time means the basket is
-fixed — a product we did not collect cannot be recovered later, because the
-unfiltered file is not kept. Since the basket is chosen on purpose and held
-constant for the semester, this is an acceptable and intentional choice.
-
-### Key or password
-
-None. Shufersal publishes without a login.
-
-### Limitations
-
-- A product missing from a file may be out of stock or may simply not be carried
-  by that branch. We treat the two as different and do not fill gaps.
-- Branch coverage and assortment differ between branches, so the basket is
-  defined by barcode and any product absent from a branch stays a gap.
-- Promotions are expressed in the chain's own fields and need normalising into
-  one boolean / price schema.
-- The portal is not a formally documented API, so a layout change on their side
-  is a realistic failure mode we monitor.
+- A product missing from a file may be out of stock or not carried by that
+  branch. We do not fill gaps.
+- Publication time varies: three of our samples were published at 03:00, one at
+  04:31. The file name records the publication time, which may differ from the
+  moment we download it.
+- Times in the source carry no timezone; we treat them as Israel time and
+  convert to UTC.
+- The portal is not a formally documented API, so a layout change is a
+  realistic failure mode.
 - The portal refuses requests from outside Israel, so collection runs from an
   Israeli address.
 - In testing, one portal answered a browser but not a plain command-line
   request, so `collect.sh` sends a normal User-Agent header and fails loudly
   rather than silently writing an empty file.
-
-### Expected record shape
-
-```
-collected_at_utc,chain,branch_id,barcode,product_name,unit,price,on_promotion
-2026-11-17T13:05:00Z,shufersal,001,7290000066318,Milk 3% 1L,1 L,6.90,false
-```
-
-### Schema (dataset.csv columns)
-
-| column           | meaning                                                      |
-|------------------|-------------------------------------------------------------|
-| collected_at_utc | UTC timestamp of the collection run (ISO 8601)              |
-| chain            | chain identifier (constant: `shufersal` for now)           |
-| branch_id        | Shufersal branch id, as published in the source file        |
-| barcode          | product barcode (unique product key across branches)        |
-| product_name     | product name as published                                   |
-| unit             | unit of sale (e.g. `1 L`, `500 g`)                          |
-| price            | shelf price for that branch at collection time              |
-| on_promotion     | `true` / `false` — whether a promotion applied              |
-
----
+- The portal documents no limit on request frequency; three requests a day per
+  branch is far below anything that could burden it.
 
 ## Planned second source (week 7)
 
 The project timeline adds a second, enriching data source in week 7, and the
 contract calls for a source that can be integrated with another to produce
-richer findings. We will choose one that **explains** the branch differences in
-our research question rather than just adding rows — the leading candidate is a
-per-locality socioeconomic indicator (CBS), to test whether a branch's tendency
-to lead or follow price changes tracks the socioeconomic profile of its town.
-This section will be filled in with the chosen source, its content, limitations
-and schema once it is locked.
+richer findings. We will choose one that **explains** the branch differences
+rather than just adding rows — the leading candidate is a per-locality
+socioeconomic indicator (CBS), to test whether a branch's tendency to lead or
+follow price changes tracks the socioeconomic profile of its town. This section
+will be filled in with the chosen source, its content, limitations and schema
+once it is locked.
 
 ---
 
-## Appendix — How this was built (AI-assisted)
+## Appendix D — How this was built (AI-assisted)
 
 Per the course rules on using language models, this documents the prompts and
 decisions behind this file. We used Claude as a thinking and drafting aid; every
@@ -239,3 +277,10 @@ choice was reviewed and decided by us.
    isn't biased; store only the filtered basket to keep the size small."** →
    Updated the collection frequency, the branch design, and the collect-and-
    filter storage approach.
+
+7. **"Guide us through organizing the manual samples and preparing the data
+   documentation for Exercise 3."** → Organized four daily samples of one
+   branch under `raw/` according to the contract's naming rule; reviewed the
+   fields in the XML files and decided which to keep; dropped `on_promotion`
+   and added the price-update time; based the size estimate on measured file
+   sizes; and arranged this file into the six required sections.
